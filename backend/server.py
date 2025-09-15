@@ -183,6 +183,7 @@ async def translate_text(request: TranslateRequest):
         
         payload = {
             "contents": [{
+                "role": "user",
                 "parts": [{"text": prompt}]
             }]
         }
