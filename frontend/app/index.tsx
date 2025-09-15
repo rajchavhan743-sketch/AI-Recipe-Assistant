@@ -43,9 +43,24 @@ export default function HomeScreen() {
 
   const loadSettings = async () => {
     try {
+      // First load from local storage for immediate use
       const savedLanguage = await AsyncStorage.getItem('preferredLanguage');
       if (savedLanguage) {
         setPreferredLanguage(savedLanguage);
+      }
+
+      // Then try to load from backend to get the latest settings
+      try {
+        const response = await fetch(`${BACKEND_URL}/api/settings`);
+        if (response.ok) {
+          const data = await response.json();
+          if (data.preferred_language && data.preferred_language !== savedLanguage) {
+            setPreferredLanguage(data.preferred_language);
+            await AsyncStorage.setItem('preferredLanguage', data.preferred_language);
+          }
+        }
+      } catch (error) {
+        console.log('Backend settings not available, using local storage');
       }
     } catch (error) {
       console.error('Error loading settings:', error);
