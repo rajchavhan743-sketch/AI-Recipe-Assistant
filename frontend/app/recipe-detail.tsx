@@ -23,6 +23,7 @@ interface Recipe {
   ingredients: string[];
   steps: string[];
   missing_items: string[];
+  estimated_time: string;
 }
 
 export default function RecipeDetailScreen() {
@@ -75,6 +76,7 @@ export default function RecipeDetailScreen() {
       const textToTranslate = [
         `Recipe Name: ${recipe.name}`,
         `Description: ${recipe.description}`,
+        `Estimated Time: ${recipe.estimated_time}`,
         `Ingredients: ${recipe.ingredients.join(', ')}`,
         `Steps: ${recipe.steps.join('. ')}`,
         `Missing Items: ${recipe.missing_items.join(', ')}`
@@ -204,6 +206,10 @@ export default function RecipeDetailScreen() {
         <View style={styles.titleSection}>
           <Text style={styles.recipeName}>{recipe.name}</Text>
           <Text style={styles.recipeDescription}>{recipe.description}</Text>
+          <View style={styles.timeContainer}>
+            <Ionicons name="time" size={18} color="#4CAF50" />
+            <Text style={styles.timeText}>{recipe.estimated_time}</Text>
+          </View>
         </View>
 
         {/* Missing Items Alert */}
@@ -331,6 +337,17 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#6c757d',
     lineHeight: 24,
+    marginBottom: 12,
+  },
+  timeContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  timeText: {
+    fontSize: 16,
+    color: '#4CAF50',
+    fontWeight: '600',
+    marginLeft: 8,
   },
   missingItemsAlert: {
     backgroundColor: '#fff3cd',

@@ -27,6 +27,7 @@ interface Recipe {
   ingredients: string[];
   steps: string[];
   missing_items: string[];
+  estimated_time: string;
 }
 
 export default function HomeScreen() {
@@ -161,13 +162,23 @@ export default function HomeScreen() {
             <Ionicons name="restaurant" size={14} color="#666" /> {item.ingredients.length} ingredients
           </Text>
           <Text style={styles.statText}>
-            <Ionicons name="time" size={14} color="#666" /> {item.steps.length} steps
+            <Ionicons name="time" size={14} color="#666" /> {item.estimated_time}
           </Text>
+        </View>
+        <View style={styles.recipeStats}>
+          <Text style={styles.statText}>
+            <Ionicons name="list" size={14} color="#666" /> {item.steps.length} steps
+          </Text>
+          {item.missing_items.length > 0 && (
+            <Text style={styles.missingCount}>
+              <Ionicons name="warning" size={14} color="#dc3545" /> {item.missing_items.length} missing
+            </Text>
+          )}
         </View>
         {item.missing_items.length > 0 && (
           <Text style={styles.missingItems}>
-            Missing: {item.missing_items.slice(0, 3).join(', ')}
-            {item.missing_items.length > 3 && '...'}
+            Missing: {item.missing_items.slice(0, 2).join(', ')}
+            {item.missing_items.length > 2 && '...'}
           </Text>
         )}
       </View>
@@ -403,6 +414,11 @@ const styles = StyleSheet.create({
   statText: {
     fontSize: 12,
     color: '#666',
+    marginRight: 16,
+  },
+  missingCount: {
+    fontSize: 12,
+    color: '#dc3545',
     marginRight: 16,
   },
   missingItems: {

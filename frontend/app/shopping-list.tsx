@@ -79,21 +79,28 @@ export default function ShoppingListScreen() {
   const performClearAll = async () => {
     setIsClearing(true);
     try {
+      console.log('Attempting to clear all items...');
       const response = await fetch(`${BACKEND_URL}/api/shopping-list`, {
         method: 'DELETE',
       });
 
+      console.log('Clear response status:', response.status);
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
 
-      // Clear local state immediately
+      const responseData = await response.json();
+      console.log('Clear response data:', responseData);
+
+      // Force clear local state immediately
       setShoppingItems([]);
       
-      // Also refresh from server to ensure consistency
-      await loadShoppingList();
+      // Wait a moment then refresh from server to ensure consistency
+      setTimeout(async () => {
+        await loadShoppingList();
+        Alert.alert('Success', 'Shopping list cleared successfully!');
+      }, 500);
       
-      Alert.alert('Success', 'Shopping list cleared successfully!');
     } catch (error) {
       console.error('Error clearing shopping list:', error);
       Alert.alert('Error', 'Failed to clear shopping list. Please try again.');
@@ -122,10 +129,12 @@ export default function ShoppingListScreen() {
 
   const performDeleteItem = async (itemId: string) => {
     try {
+      console.log('Attempting to delete item:', itemId);
       const response = await fetch(`${BACKEND_URL}/api/shopping-list/${itemId}`, {
         method: 'DELETE',
       });
 
+      console.log('Delete response status:', response.status);
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
@@ -134,7 +143,9 @@ export default function ShoppingListScreen() {
       setShoppingItems(prev => prev.filter(item => item.id !== itemId));
       
       // Also refresh from server to ensure consistency
-      await loadShoppingList();
+      setTimeout(async () => {
+        await loadShoppingList();
+      }, 300);
       
       Alert.alert('Success', 'Item deleted successfully!');
     } catch (error) {

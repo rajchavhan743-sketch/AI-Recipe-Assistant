@@ -45,6 +45,7 @@ class Recipe(BaseModel):
     ingredients: List[str]
     steps: List[str]
     missing_items: List[str]
+    estimated_time: str
 
 class RecipeRequest(BaseModel):
     ingredients: str
@@ -102,11 +103,13 @@ Task:
    - "ingredients" (array of strings) → Full list of needed ingredients
    - "steps" (array of strings) → Step-by-step instructions
    - "missing_items" (array of strings) → Ingredients that the user does NOT have
+   - "estimated_time" (string) → Total cooking time (e.g., "30 minutes", "1 hour")
 
 Important:
 - Return ONLY valid JSON.
 - Do not include extra text, explanations, or formatting outside of the JSON.
 - Respond in {request.language} language.
+- Estimated time should include both prep and cooking time.
 
 Format Example:
 {{
@@ -116,14 +119,16 @@ Format Example:
       "description": "A quick and tasty rice dish with tomatoes.",
       "ingredients": ["Rice", "Tomatoes", "Onion", "Salt", "Oil"],
       "steps": ["Cook rice", "Sauté onions and tomatoes", "Mix with rice"],
-      "missing_items": ["Onion", "Salt", "Oil"]
+      "missing_items": ["Onion", "Salt", "Oil"],
+      "estimated_time": "25 minutes"
     }},
     {{
       "name": "Chicken Curry",
       "description": "A simple chicken curry with spices.",
       "ingredients": ["Chicken", "Tomatoes", "Onion", "Garlic", "Salt"],
       "steps": ["Sauté onions and garlic", "Add chicken", "Add tomatoes and spices", "Cook until done"],
-      "missing_items": ["Garlic", "Salt"]
+      "missing_items": ["Garlic", "Salt"],
+      "estimated_time": "45 minutes"
     }}
   ]
 }}"""
@@ -249,6 +254,7 @@ async def add_bulk_shopping_items(items: List[str]):
 async def clear_shopping_list():
     try:
         result = await db.shopping_items.delete_many({})
+        logging.info(f"Cleared {result.deleted_count} items from shopping list")
         return {"message": f"Cleared {result.deleted_count} items from shopping list"}
     except Exception as e:
         logging.error(f"Error clearing shopping list: {e}")
@@ -260,6 +266,7 @@ async def delete_shopping_item(item_id: str):
         result = await db.shopping_items.delete_one({"id": item_id})
         if result.deleted_count == 0:
             raise HTTPException(status_code=404, detail="Shopping item not found")
+        logging.info(f"Deleted shopping item with id: {item_id}")
         return {"message": "Shopping item deleted successfully"}
     except HTTPException:
         raise
@@ -310,7 +317,7 @@ app.add_middleware(
 # Configure logging
 logging.basicConfig(
     level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+    format='%(asctime)s - %(name)s - %(levelevel)s - %(message)s'
 )
 logger = logging.getLogger(__name__)
 
