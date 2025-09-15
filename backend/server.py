@@ -131,6 +131,7 @@ Format Example:
         # Prepare the request payload for Gemini API
         payload = {
             "contents": [{
+                "role": "user",
                 "parts": [{"text": prompt}]
             }]
         }
