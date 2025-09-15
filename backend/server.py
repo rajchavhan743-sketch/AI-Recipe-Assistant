@@ -96,20 +96,22 @@ async def get_recipes(request: RecipeRequest):
 The user has the following ingredients: {request.ingredients}.
 
 Task:
-1. Suggest 2 simple recipes the user can cook with these ingredients.
-2. For each recipe, include:
+1. Suggest 4-5 diverse and delicious recipes the user can cook with these ingredients.
+2. Include recipes of varying difficulty levels (easy, medium) and cooking times.
+3. For each recipe, include:
    - "name" (string) → Recipe title
    - "description" (string) → Short 1–2 line description
    - "ingredients" (array of strings) → Full list of needed ingredients
    - "steps" (array of strings) → Step-by-step instructions
    - "missing_items" (array of strings) → Ingredients that the user does NOT have
-   - "estimated_time" (string) → Total cooking time (e.g., "30 minutes", "1 hour")
+   - "estimated_time" (string) → Total cooking time (e.g., "15 minutes", "30 minutes", "1 hour")
 
 Important:
 - Return ONLY valid JSON.
 - Do not include extra text, explanations, or formatting outside of the JSON.
-- Respond in {request.language} language.
+- ALL content must be in {request.language} language including recipe names, descriptions, ingredients, and steps.
 - Estimated time should include both prep and cooking time.
+- Provide variety in cooking methods (stir-fry, baked, grilled, soup, etc.).
 
 Format Example:
 {{
@@ -129,6 +131,22 @@ Format Example:
       "steps": ["Sauté onions and garlic", "Add chicken", "Add tomatoes and spices", "Cook until done"],
       "missing_items": ["Garlic", "Salt"],
       "estimated_time": "45 minutes"
+    }},
+    {{
+      "name": "Stuffed Tomatoes",
+      "description": "Baked tomatoes stuffed with rice and herbs.",
+      "ingredients": ["Large Tomatoes", "Rice", "Herbs", "Cheese", "Oil"],
+      "steps": ["Hollow out tomatoes", "Mix rice with herbs", "Stuff tomatoes", "Bake until tender"],
+      "missing_items": ["Herbs", "Cheese"],
+      "estimated_time": "40 minutes"
+    }},
+    {{
+      "name": "Quick Chicken Stir-fry",
+      "description": "Fast and healthy chicken stir-fry with vegetables.",
+      "ingredients": ["Chicken", "Mixed Vegetables", "Soy Sauce", "Oil", "Garlic"],
+      "steps": ["Cut chicken into pieces", "Heat oil in pan", "Stir-fry chicken", "Add vegetables and sauce"],
+      "missing_items": ["Mixed Vegetables", "Soy Sauce"],
+      "estimated_time": "20 minutes"
     }}
   ]
 }}"""
