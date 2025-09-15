@@ -132,7 +132,7 @@ export default function HomeScreen() {
       setRecipes(data.recipes || []);
       
       if (data.recipes && data.recipes.length > 0) {
-        Alert.alert('Success', `Found ${data.recipes.length} recipe suggestions!`);
+        Alert.alert('Success', `Found ${data.recipes.length} delicious recipe suggestions in ${preferredLanguage}!`);
       } else {
         Alert.alert('No Recipes', 'No recipes found for the given ingredients. Try different ingredients.');
       }
