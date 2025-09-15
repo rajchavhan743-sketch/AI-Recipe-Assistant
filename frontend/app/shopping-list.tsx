@@ -42,6 +42,7 @@ export default function ShoppingListScreen() {
       }
 
       const data = await response.json();
+      console.log('Loaded shopping list items:', data.length);
       setShoppingItems(data || []);
     } catch (error) {
       console.error('Error loading shopping list:', error);
