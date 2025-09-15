@@ -86,7 +86,12 @@ export default function ShoppingListScreen() {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
 
+      // Clear local state immediately
       setShoppingItems([]);
+      
+      // Also refresh from server to ensure consistency
+      await loadShoppingList();
+      
       Alert.alert('Success', 'Shopping list cleared successfully!');
     } catch (error) {
       console.error('Error clearing shopping list:', error);
