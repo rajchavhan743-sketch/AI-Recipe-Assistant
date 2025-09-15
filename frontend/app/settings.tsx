@@ -7,6 +7,7 @@ import {
   SafeAreaView,
   Alert,
   ActivityIndicator,
+  ScrollView,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
@@ -42,17 +43,23 @@ export default function SettingsScreen() {
       }
 
       // Then try to load from backend
-      const response = await fetch(`${BACKEND_URL}/api/settings`);
-      if (response.ok) {
-        const data = await response.json();
-        if (data.preferred_language) {
-          setPreferredLanguage(data.preferred_language);
-          await AsyncStorage.setItem('preferredLanguage', data.preferred_language);
+      try {
+        const response = await fetch(`${BACKEND_URL}/api/settings`);
+        if (response.ok) {
+          const data = await response.json();
+          if (data.preferred_language) {
+            setPreferredLanguage(data.preferred_language);
+            // Update local storage if different
+            if (data.preferred_language !== savedLanguage) {
+              await AsyncStorage.setItem('preferredLanguage', data.preferred_language);
+            }
+          }
         }
+      } catch (error) {
+        console.log('Backend settings not available, using local storage');
       }
     } catch (error) {
       console.error('Error loading settings:', error);
-      // Continue with local storage value or default
     } finally {
       setIsLoading(false);
     }
@@ -61,47 +68,59 @@ export default function SettingsScreen() {
   const saveSettings = async (language: string) => {
     setIsSaving(true);
     try {
-      // Save to local storage immediately
+      // Save to local storage immediately for instant UI update
       await AsyncStorage.setItem('preferredLanguage', language);
       setPreferredLanguage(language);
 
       // Also save to backend
-      const response = await fetch(`${BACKEND_URL}/api/settings`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          preferred_language: language,
-        }),
-      });
+      try {
+        const response = await fetch(`${BACKEND_URL}/api/settings`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            preferred_language: language,
+          }),
+        });
 
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+
+        Alert.alert('Success', `Language changed to ${language}!\nNew recipes will be generated in this language.`);
+      } catch (error) {
+        console.error('Error saving to backend:', error);
+        Alert.alert(
+          'Partially Saved', 
+          `Language changed to ${language} locally. Settings will sync when connection is restored.`
+        );
       }
-
-      Alert.alert('Success', `Language preference updated to ${language}`);
     } catch (error) {
       console.error('Error saving settings:', error);
-      Alert.alert('Warning', 'Language saved locally but failed to sync with server. Your preference will still be used.');
+      Alert.alert('Error', 'Failed to save language preference. Please try again.');
     } finally {
       setIsSaving(false);
     }
   };
 
   const selectLanguage = (language: string) => {
-    if (language !== preferredLanguage) {
+    if (language !== preferredLanguage && !isSaving) {
       Alert.alert(
         'Change Language',
-        `Change your preferred language to ${language}? This will affect recipe generation and translations.`,
+        `Change your preferred language to ${language}?\n\nThis will affect:
+• Recipe generation language
+• Translation services
+• All new content`,
         [
           {
             text: 'Cancel',
             style: 'cancel',
           },
           {
-            text: 'Change',
+            text: 'Change Language',
             onPress: () => saveSettings(language),
+            style: 'default',
           },
         ]
       );
@@ -136,14 +155,25 @@ export default function SettingsScreen() {
         <View style={styles.placeholder} />
       </View>
 
-      {/* Settings Content */}
-      <View style={styles.content}>
+      <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
+        {/* Current Language Display */}
+        <View style={styles.currentLanguageSection}>
+          <Text style={styles.currentLanguageTitle}>Current Language</Text>
+          <View style={styles.currentLanguageDisplay}>
+            <Text style={styles.currentLanguageFlag}>
+              {LANGUAGES.find(lang => lang.code === preferredLanguage)?.flag || '🌐'}
+            </Text>
+            <Text style={styles.currentLanguageName}>{preferredLanguage}</Text>
+          </View>
+        </View>
+
+        {/* Language Selection */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>
-            <Ionicons name="language" size={18} color="#4CAF50" /> Preferred Language
+            <Ionicons name="language" size={18} color="#4CAF50" /> Choose Language
           </Text>
           <Text style={styles.sectionDescription}>
-            Choose your preferred language for recipes and translations
+            Select your preferred language for recipes and translations
           </Text>
 
           {LANGUAGES.map((language) => (
@@ -152,9 +182,11 @@ export default function SettingsScreen() {
               style={[
                 styles.languageOption,
                 preferredLanguage === language.code && styles.selectedLanguageOption,
+                isSaving && styles.languageOptionDisabled,
               ]}
               onPress={() => selectLanguage(language.code)}
               disabled={isSaving}
+              activeOpacity={0.7}
             >
               <View style={styles.languageContent}>
                 <Text style={styles.languageFlag}>{language.flag}</Text>
@@ -167,12 +199,18 @@ export default function SettingsScreen() {
                   {language.name}
                 </Text>
               </View>
-              {preferredLanguage === language.code && (
-                <Ionicons name="checkmark-circle" size={24} color="#4CAF50" />
-              )}
-              {isSaving && preferredLanguage === language.code && (
-                <ActivityIndicator size="small" color="#4CAF50" />
-              )}
+              <View style={styles.languageActions}>
+                {isSaving && preferredLanguage === language.code ? (
+                  <ActivityIndicator size="small" color="#4CAF50" />
+                ) : preferredLanguage === language.code ? (
+                  <View style={styles.selectedIndicator}>
+                    <Ionicons name="checkmark-circle" size={24} color="#4CAF50" />
+                    <Text style={styles.selectedText}>Selected</Text>
+                  </View>
+                ) : (
+                  <Ionicons name="chevron-forward" size={20} color="#ccc" />
+                )}
+              </View>
             </TouchableOpacity>
           ))}
         </View>
@@ -194,31 +232,39 @@ export default function SettingsScreen() {
             <Text style={styles.infoLabel}>AI Provider</Text>
             <Text style={styles.infoValue}>Google Gemini</Text>
           </View>
+          <View style={styles.infoRow}>
+            <Text style={styles.infoLabel}>Languages Supported</Text>
+            <Text style={styles.infoValue}>{LANGUAGES.length} Languages</Text>
+          </View>
         </View>
 
-        {/* Help Section */}
+        {/* Features Section */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>
-            <Ionicons name="help-circle" size={18} color="#4CAF50" /> How to Use
+            <Ionicons name="sparkles" size={18} color="#4CAF50" /> Features
           </Text>
-          <View style={styles.helpItem}>
-            <Text style={styles.helpStep}>1.</Text>
-            <Text style={styles.helpText}>Enter ingredients you have at home</Text>
+          <View style={styles.featureItem}>
+            <Ionicons name="mic" size={16} color="#4CAF50" />
+            <Text style={styles.featureText}>Voice input for ingredients</Text>
           </View>
-          <View style={styles.helpItem}>
-            <Text style={styles.helpStep}>2.</Text>
-            <Text style={styles.helpText}>Tap "Find Recipes" to get AI suggestions</Text>
+          <View style={styles.featureItem}>
+            <Ionicons name="restaurant" size={16} color="#4CAF50" />
+            <Text style={styles.featureText}>4-5 AI-generated recipes per search</Text>
           </View>
-          <View style={styles.helpItem}>
-            <Text style={styles.helpStep}>3.</Text>
-            <Text style={styles.helpText}>View recipe details and add missing items to shopping list</Text>
+          <View style={styles.featureItem}>
+            <Ionicons name="time" size={16} color="#4CAF50" />
+            <Text style={styles.featureText}>Estimated cooking times</Text>
           </View>
-          <View style={styles.helpItem}>
-            <Text style={styles.helpStep}>4.</Text>
-            <Text style={styles.helpText}>Use the translate button to view recipes in your preferred language</Text>
+          <View style={styles.featureItem}>
+            <Ionicons name="basket" size={16} color="#4CAF50" />
+            <Text style={styles.featureText}>Smart shopping list management</Text>
+          </View>
+          <View style={styles.featureItem}>
+            <Ionicons name="language" size={16} color="#4CAF50" />
+            <Text style={styles.featureText}>Multi-language recipe translation</Text>
           </View>
         </View>
-      </View>
+      </ScrollView>
     </SafeAreaView>
   );
 }
@@ -264,7 +310,32 @@ const styles = StyleSheet.create({
   content: {
     flex: 1,
     paddingHorizontal: 20,
-    paddingTop: 20,
+  },
+  currentLanguageSection: {
+    backgroundColor: '#4CAF50',
+    borderRadius: 12,
+    padding: 20,
+    marginVertical: 20,
+    alignItems: 'center',
+  },
+  currentLanguageTitle: {
+    fontSize: 16,
+    color: '#fff',
+    marginBottom: 8,
+    opacity: 0.9,
+  },
+  currentLanguageDisplay: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  currentLanguageFlag: {
+    fontSize: 28,
+    marginRight: 12,
+  },
+  currentLanguageName: {
+    fontSize: 22,
+    fontWeight: 'bold',
+    color: '#fff',
   },
   section: {
     backgroundColor: '#fff',
@@ -292,12 +363,16 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     borderRadius: 8,
     marginBottom: 8,
-    borderWidth: 1,
+    borderWidth: 2,
     borderColor: '#e9ecef',
+    backgroundColor: '#fff',
   },
   selectedLanguageOption: {
     borderColor: '#4CAF50',
     backgroundColor: '#f8fff8',
+  },
+  languageOptionDisabled: {
+    opacity: 0.6,
   },
   languageContent: {
     flexDirection: 'row',
@@ -316,6 +391,18 @@ const styles = StyleSheet.create({
     color: '#4CAF50',
     fontWeight: '600',
   },
+  languageActions: {
+    alignItems: 'center',
+  },
+  selectedIndicator: {
+    alignItems: 'center',
+  },
+  selectedText: {
+    fontSize: 10,
+    color: '#4CAF50',
+    fontWeight: '600',
+    marginTop: 2,
+  },
   infoRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -333,22 +420,15 @@ const styles = StyleSheet.create({
     color: '#6c757d',
     fontWeight: '500',
   },
-  helpItem: {
+  featureItem: {
     flexDirection: 'row',
-    alignItems: 'flex-start',
+    alignItems: 'center',
     marginBottom: 12,
   },
-  helpStep: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: '#4CAF50',
-    marginRight: 12,
-    width: 20,
-  },
-  helpText: {
-    fontSize: 16,
+  featureText: {
+    fontSize: 14,
     color: '#2c3e50',
+    marginLeft: 12,
     flex: 1,
-    lineHeight: 24,
   },
 });

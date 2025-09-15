@@ -15,6 +15,7 @@ import {
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
 import * as Speech from 'expo-speech';
+import * as SpeechRecognition from 'expo-speech-recognition';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { router } from 'expo-router';
 import Constants from 'expo-constants';
@@ -36,10 +37,25 @@ export default function HomeScreen() {
   const [isLoading, setIsLoading] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
   const [preferredLanguage, setPreferredLanguage] = useState('English');
+  const [speechPermission, setSpeechPermission] = useState(false);
 
   useEffect(() => {
     loadSettings();
+    requestSpeechPermission();
   }, []);
+
+  const requestSpeechPermission = async () => {
+    try {
+      const { status } = await SpeechRecognition.requestPermissionsAsync();
+      setSpeechPermission(status === 'granted');
+      if (status !== 'granted') {
+        console.log('Speech recognition permission denied');
+      }
+    } catch (error) {
+      console.error('Error requesting speech permission:', error);
+      setSpeechPermission(false);
+    }
+  };
 
   const loadSettings = async () => {
     try {
@@ -69,39 +85,74 @@ export default function HomeScreen() {
 
   const handleVoiceInput = async () => {
     if (isRecording) {
-      Speech.stop();
-      setIsRecording(false);
+      // Stop recording
+      try {
+        await SpeechRecognition.stop();
+        setIsRecording(false);
+      } catch (error) {
+        console.error('Error stopping speech recognition:', error);
+        setIsRecording(false);
+      }
+      return;
+    }
+
+    if (!speechPermission) {
+      Alert.alert(
+        'Permission Required',
+        'Please enable microphone permissions in your device settings to use voice input.',
+        [
+          {
+            text: 'OK',
+            onPress: () => requestSpeechPermission(),
+          },
+        ]
+      );
       return;
     }
 
     try {
       setIsRecording(true);
       
-      // For now, we'll use a simple prompt-based approach
-      // In a real implementation, you would use expo-speech-recognition
-      Alert.alert(
-        'Voice Input',
-        'Please speak your ingredients now. This is a demo - tap OK to use text input.',
-        [
-          {
-            text: 'Cancel',
-            onPress: () => setIsRecording(false),
-            style: 'cancel',
-          },
-          {
-            text: 'OK',
-            onPress: () => {
-              setIsRecording(false);
-              // Demo: Set some sample ingredients
-              setIngredients('rice, tomatoes, onions, chicken');
-            },
-          },
-        ]
-      );
+      // Check if speech recognition is available
+      const isAvailable = await SpeechRecognition.getAvailableAsync();
+      if (!isAvailable) {
+        throw new Error('Speech recognition not available on this device');
+      }
+
+      // Configure speech recognition options
+      const options = {
+        language: 'en-US', // You can change this based on preferred language
+        continuous: false,
+        interimResults: false,
+        maxAlternatives: 1,
+      };
+
+      // Start speech recognition
+      const result = await SpeechRecognition.start(options);
+      
+      if (result && result.transcription) {
+        // Add the transcribed text to existing ingredients
+        const newText = result.transcription.trim();
+        if (newText) {
+          const currentIngredients = ingredients.trim();
+          const updatedIngredients = currentIngredients 
+            ? `${currentIngredients}, ${newText}` 
+            : newText;
+          setIngredients(updatedIngredients);
+          
+          Alert.alert('Voice Input', `Added: "${newText}"`);
+        }
+      } else {
+        Alert.alert('Voice Input', 'No speech detected. Please try again.');
+      }
     } catch (error) {
       console.error('Voice input error:', error);
+      Alert.alert(
+        'Voice Input Error', 
+        'Unable to use voice input. Please ensure your device supports speech recognition and microphone permissions are granted.'
+      );
+    } finally {
       setIsRecording(false);
-      Alert.alert('Error', 'Voice input is not available on this device');
     }
   };
 
@@ -232,17 +283,31 @@ export default function HomeScreen() {
               textAlignVertical="top"
             />
             <TouchableOpacity
-              style={[styles.micButton, isRecording && styles.micButtonActive]}
+              style={[
+                styles.micButton, 
+                isRecording && styles.micButtonActive,
+                !speechPermission && styles.micButtonDisabled
+              ]}
               onPress={handleVoiceInput}
               disabled={isLoading}
             >
               <Ionicons
                 name={isRecording ? "stop" : "mic"}
                 size={20}
-                color={isRecording ? "#fff" : "#4CAF50"}
+                color={isRecording ? "#fff" : (speechPermission ? "#4CAF50" : "#ccc")}
               />
             </TouchableOpacity>
           </View>
+          
+          {isRecording && (
+            <Text style={styles.recordingText}>🎤 Listening... Speak your ingredients now</Text>
+          )}
+          
+          {!speechPermission && (
+            <Text style={styles.permissionText}>
+              Microphone permissions required for voice input
+            </Text>
+          )}
         </View>
 
         {/* Action Buttons */}
@@ -268,10 +333,17 @@ export default function HomeScreen() {
           </TouchableOpacity>
         </View>
 
+        {/* Current Language Display */}
+        <View style={styles.languageDisplay}>
+          <Text style={styles.languageText}>
+            🌐 Recipes will be generated in: <Text style={styles.languageValue}>{preferredLanguage}</Text>
+          </Text>
+        </View>
+
         {/* Recipes List */}
         {recipes.length > 0 && (
           <View style={styles.recipesSection}>
-            <Text style={styles.sectionTitle}>Recipe Suggestions</Text>
+            <Text style={styles.sectionTitle}>Recipe Suggestions ({recipes.length})</Text>
             <FlatList
               data={recipes}
               renderItem={renderRecipeItem}
@@ -355,6 +427,23 @@ const styles = StyleSheet.create({
   micButtonActive: {
     backgroundColor: '#4CAF50',
   },
+  micButtonDisabled: {
+    borderColor: '#ccc',
+    backgroundColor: '#f0f0f0',
+  },
+  recordingText: {
+    marginTop: 8,
+    fontSize: 14,
+    color: '#4CAF50',
+    fontWeight: '600',
+    textAlign: 'center',
+  },
+  permissionText: {
+    marginTop: 8,
+    fontSize: 12,
+    color: '#dc3545',
+    textAlign: 'center',
+  },
   actionButtons: {
     marginBottom: 20,
   },
@@ -388,6 +477,23 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     marginLeft: 8,
+  },
+  languageDisplay: {
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 20,
+    borderWidth: 1,
+    borderColor: '#e9ecef',
+  },
+  languageText: {
+    fontSize: 14,
+    color: '#6c757d',
+    textAlign: 'center',
+  },
+  languageValue: {
+    color: '#4CAF50',
+    fontWeight: 'bold',
   },
   recipesSection: {
     marginBottom: 20,
